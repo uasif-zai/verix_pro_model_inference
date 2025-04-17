@@ -1,0 +1,13 @@
+{
+    "type": "service_account",
+    "project_id": "level-sol-440022-t2",
+    "private_key_id": "a0c8803dd367ff3294942a3942b1bdf10e12779e",
+    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC99AmGAXZlWnPF\nGtcEK7Y61+FiCn53Q4S/4DSn5dfVM2xZz1PYY4V0RkaNU2f817YrwNAKP4e8Xzu0\nrcDndn71XxQ1c01TxlEgIZB1BU4YfUNt1iIgN0gFf/zkCrw1Yx0jsJSJznuNVJgl\nh7OMjXWdw6QYDCCO+0nKpKweWIeW6REKr3b/ygE3T/6N5yGbiZqTvXp4iugORURV\nhhTvLbGxGXmWW/Anvhrrm+Tg38Eo6LLxTFRIPOb2zdjnp2iYKpszPHYWXl1Oswfm\n3shKk4O80+Kiuqppl0834wFhrG8ntxyWs28mU2jOggMZdo/8hB0KhQEJvdQicU2X\n5JFbLbJrAgMBAAECggEACbd1oHQFGTYnsEncY3HULO2YfkPIwe0J2cIF4rjJ8gJi\n/oBLUUkpLUN5atOwNBAMv4kDaCLLz+gtmhZxROXPPln4vKs2cpybnCf0+o3YHgr6\nUgbShBD2QpT2qLhr3Dp2GSDe2Ej5q2CyaU908P5wQvu1y/OC26chcf47Ph1YaKQf\nNzhMeM40kWtGh9rWoihpLYogWD6Xw+EPGp3ORrVVg/TX7EMfXWq23OG6aEMipBx3\n1EqQeu+FJUhdL2ey9MF+DrK9PsaRiulllS1CTwrby63zFjZ7UDkbewSMDQjLPX6y\nFvqSYtMC6qog8ZURgRX3IIIc96+XhliYzzyPtT1fMQKBgQDtg/W7s6vqn+umaZrh\naveQ0vmuOKTqkV8Qsc2duG5dtdJwGsevG7+MhTqAoZmvvXskxdTZ+haan5Q4Djd4\nFrR5TsT31DRVpTuEg9cuflkW9gBGAAIsQYbjHNNjyHUM62TnVr6Scra79C355Ww9\ntUt5+ZIxMbYv9wI6LPNmg0gj1QKBgQDMvH3i7AA7dSmj3m2J0cURozBlKVhxT2KJ\nnmW2IOBMxBXWerSCAYq1Cj3E3NSlQVfvEAHJ+ZmpWdQPYTwy4FyoGAcHoIhj+p1x\neVroD/MZSS7KxvMlN0Ysj90yBPoHIKbpRyz946zae1BPDUcGBoF4ohi6YsjuVp2Z\nhjS49IbdPwKBgQDiQzN0/FRpzq7OeQvycdQlQtZYAd4ZFyNY5AjclzWMUAmIgfp3\n9hcj5kc1Ar1FjVwiS9PZU0T1R9ALFoABBqAmb8Nz09OHQ0DPnEkBIZv9I5xfEuL/\nBe1Zrbwy8mOPSy90sk4ZdO5fXt3tkYDryCl+qSF7e7/zMXwNr4Svw6CVgQKBgQCs\nvyo0ys5TXMM6qhWgoOd3v0q5QI6IZOQOnCDT8J9xBk4qvzQJMcXYhYCi13Vwzlak\ntsvboIf/9XRRWcjSYK6tgkCENfZ+7VnlAfErNzH2FuKtY/qKXz4NoYGQj9RrKSjM\nUirrOiyB2GRlnx1bPygFIjhdI7bIKzsk67EWkfQtPwKBgQDERSnsrxlOXiS89x4j\nOI3gs30PwonffQix2JWDcH7/TJwzq+IZl5E/Gl55S4N/YUdt1XsPCKKtp9O1Ry0h\nvbrQPpveLHkM5v0w9hlTTzp9Cftn+ZvfNQEt7z+Yurfu4t/Uw3ZRTDKZhNwGip/C\n9tJdOTKZHb3l4vjK2iR41vnBQA==\n-----END PRIVATE KEY-----\n",
+    "client_email": "usman-verix-pro-account@level-sol-440022-t2.iam.gserviceaccount.com",
+    "client_id": "101088720842227205299",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/usman-verix-pro-account%40level-sol-440022-t2.iam.gserviceaccount.com",
+    "universe_domain": "googleapis.com"
+  }
