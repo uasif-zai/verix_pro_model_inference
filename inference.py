@@ -7,7 +7,8 @@ from pdf2image import convert_from_path
 from mrcnn import model as modellib
 from mrcnn.config import Config
 from mrcnn.visualize import apply_mask, random_colors
-
+import shutil
+from pathlib import Path
 from flask import Flask, request, jsonify
 import os
 import json
@@ -20,6 +21,8 @@ WEIGHTS_DIR = "/home/dev/practice/Inference/data/weights"
 METADATA_DIR = "/home/dev/practice/Inference/data/JSON_files"
 # JSON_PATH = "/home/dev/my_projects/MaskRCNN/verix-pro-v2/PDFs/result_test/result.json"
 
+def clear_dir(path):
+    [shutil.rmtree(p) if p.is_dir() else p.unlink() for p in Path(path).glob('*')]
 
 def convert_coords_to_str(obj):
     if isinstance(obj, list):
@@ -34,8 +37,9 @@ def convert_coords_to_str(obj):
 
 
 
-def print_object_coordinates(image_name, masks, class_ids, class_names, model_name, JSON_data, coords_per_line=5):
+def print_object_coordinates(image_name, masks, class_ids, class_names, model_name, JSON_data,obj_count, coords_per_line=5):
     totalDetectedObjects = masks.shape[-1]
+    #totalDetectedObjects = totalDetectedObjects // 2
     print("$$$ totalDetectedObjects : ", totalDetectedObjects)
     
     # Initialize model_name key if missing or empty
@@ -45,7 +49,7 @@ def print_object_coordinates(image_name, masks, class_ids, class_names, model_na
             "detections": []
         }
     
-    JSON_data[model_name]["totalDetectedObjects"] += totalDetectedObjects
+    #JSON_data[model_name]["totalDetectedObjects"] += totalDetectedObjects
     
     # Prepare detection entry for current page/image
     detection_entry = {
@@ -61,11 +65,14 @@ def print_object_coordinates(image_name, masks, class_ids, class_names, model_na
         for contour in contours:
             coords = contour.reshape(-1, 2).tolist()
             print("  Polygon coordinates:")
+            obj_count +=1
             for j in range(0, len(coords), coords_per_line):
                 chunk = coords[j:j+coords_per_line]
                 print(f"    {chunk}")
             detection_entry["objects"].append(coords)
-    
+    print("#################obj count in print obj corrdinarw",obj_count )
+    #JSON_data[model_name]["totalDetectedObjects"] = totalDetectedObjects
+
     # Check if detection for this page already exists
     existing_detection = next((d for d in JSON_data[model_name]["detections"] if d["page"] == image_name), None)
     if existing_detection:
@@ -73,7 +80,7 @@ def print_object_coordinates(image_name, masks, class_ids, class_names, model_na
     else:
         JSON_data[model_name]["detections"].append(detection_entry)
     
-    return JSON_data
+    return JSON_data, obj_count
 
 
 
@@ -114,6 +121,7 @@ def pdf_to_jpeg(pdf_path, output_folder, max_dim=7200, dpi=72):
         os.makedirs(output_folder)
 
     images = convert_from_path(pdf_path, dpi=dpi)
+    print("##########################", len(images))
     image_paths = []
 
     for i, image in enumerate(images):
@@ -156,7 +164,7 @@ def create_pdf_from_images(image_paths, output_pdf_path):
         print(f"[✓] Result PDF saved at {output_pdf_path}")
 
 # Inference pipeline
-def run_inference(model_name,JSON_PATH,CROPPED_FOLDER):
+def run_inference(model_name,JSON_PATH,CROPPED_FOLDER,obj_count):
     class_names = load_class_names(model_name)
     weights_path = find_weights_file(model_name)
 
@@ -167,7 +175,7 @@ def run_inference(model_name,JSON_PATH,CROPPED_FOLDER):
     image_paths = sorted([os.path.join(CROPPED_FOLDER, f) for f in os.listdir(CROPPED_FOLDER) if f.endswith('.jpeg')])
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
     output_paths = []
-
+    polygon_count = 0 
     for path in image_paths:
         image = cv2.imread(path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -178,11 +186,12 @@ def run_inference(model_name,JSON_PATH,CROPPED_FOLDER):
 
         # Print coordinates of detected objects
         print("############################################")
-        #print(filename, result['masks'], result['class_ids'], class_names)
+        print(class_names)
         with open(JSON_PATH, 'r') as file:
             json_data = json.load(file)
 
-        json_data = print_object_coordinates(filename, result['masks'], result['class_ids'], class_names,model_name,json_data)
+        json_data,temp = print_object_coordinates(filename, result['masks'], result['class_ids'], class_names,model_name,json_data,obj_count)
+        polygon_count += temp
         # After your JSON_data is ready:
         json_data_with_str_coords = convert_coords_to_str(json_data)
 
@@ -191,8 +200,9 @@ def run_inference(model_name,JSON_PATH,CROPPED_FOLDER):
                   
         save_masked_image(image, result['rois'], result['masks'], result['class_ids'], ['BG'] + class_names, result['scores'], output_path)
         output_paths.append(output_path)
-
+    print("#################polygon_count  in inference is : ", polygon_count)
     create_pdf_from_images(output_paths, os.path.join(OUTPUT_FOLDER, f"{model_name}_results.pdf"))
+    return polygon_count
 
 # # # MAIN
 # if __name__ == "__main__":
