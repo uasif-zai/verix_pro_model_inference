@@ -10,6 +10,8 @@ from mrcnn.visualize import apply_mask, random_colors
 import shutil
 from pathlib import Path
 from flask import Flask, request, jsonify
+import requests
+
 
 # Constants
 OUTPUT_FOLDER = "/home/dev/practice/Inference/PDFs/result_test"
@@ -22,6 +24,7 @@ def clear_dir(path):
         [shutil.rmtree(p) if p.is_dir() else p.unlink() for p in Path(path).glob('*')]
     except Exception as e:
         print(f"[!] Failed to clear directory {path}: {e}")
+        raise
 
 def convert_coords_to_str(obj):
     """Convert coordinates in lists or dicts to string format."""
@@ -45,7 +48,13 @@ def print_object_coordinates(image_name, masks, class_ids, class_names, model_na
         for i in range(totalDetectedObjects):
             mask = masks[:, :, i].astype(np.uint8)
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            label = class_names[class_ids[i]]
+            # label = class_names[class_ids[i]]
+            # Adjust the class ID if it's out of bounds
+            class_id = class_ids[i]
+            if class_id >= len(class_names):
+                print(f"Warning: Class ID {class_id} is out of bounds.  Using the last class name.")
+                class_id = len(class_names) - 1  # Use the last class as a fallback]
+
             for contour in contours:
                 coords = contour.reshape(-1, 2).tolist()
                 obj_count += 1
@@ -91,6 +100,16 @@ class CustomConfig(Config):
         self.NUM_CLASSES = 1 + num_classes
         super().__init__()
 
+
+
+def download_pdf_from_url(url, save_path):
+    response = requests.get(url)
+    response.raise_for_status()
+    with open(save_path, 'wb') as f:
+        f.write(response.content)
+    return save_path
+
+
 def pdf_to_jpeg(pdf_path, output_folder, max_dim=7200, dpi=72):
     """Convert a PDF into JPEG images."""
     try:
@@ -108,7 +127,7 @@ def pdf_to_jpeg(pdf_path, output_folder, max_dim=7200, dpi=72):
         return image_paths
     except Exception as e:
         print(f"[!] Failed to convert PDF to JPEG: {e}")
-        return []
+        raise
 
 def resize_image(image, max_dim=7200):
     """Resize image while maintaining aspect ratio."""
@@ -118,7 +137,7 @@ def resize_image(image, max_dim=7200):
         return cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
     except Exception as e:
         print(f"[!] Failed to resize image: {e}")
-        return image
+        raise
 
 def save_masked_image(image, boxes, masks, class_ids, class_names, scores, output_path):
     """Save image with instance masks and class labels."""
@@ -134,6 +153,7 @@ def save_masked_image(image, boxes, masks, class_ids, class_names, scores, outpu
         cv2.imwrite(output_path, cv2.cvtColor(masked, cv2.COLOR_RGB2BGR))
     except Exception as e:
         print(f"[!] Failed to save masked image: {e}")
+        raise
 
 def create_pdf_from_images(image_paths, output_pdf_path):
     """Create a PDF from a list of image paths."""
@@ -144,6 +164,7 @@ def create_pdf_from_images(image_paths, output_pdf_path):
             print(f"[✓] Result PDF saved at {output_pdf_path}")
     except Exception as e:
         print(f"[!] Failed to create result PDF: {e}")
+        raise
 
 def run_inference(model_name, JSON_PATH, CROPPED_FOLDER, obj_count):
     """Run inference using the given model and save results."""
@@ -198,10 +219,11 @@ def run_inference(model_name, JSON_PATH, CROPPED_FOLDER, obj_count):
 
             except Exception as e:
                 print(f"[!] Error processing image {path}: {e}")
+                raise
 
         create_pdf_from_images(output_paths, os.path.join(OUTPUT_FOLDER, f"{model_name}_results.pdf"))
         return polygon_count
 
     except Exception as e:
         print(f"[!] Error during run_inference setup: {e}")
-        return 0
+        raise
