@@ -3,6 +3,7 @@ import json
 import os
 from inference import run_inference, pdf_to_jpeg, clear_dir,download_pdf_from_url
 from db_manager import init_db, insert_test_table_data
+from app import Inference
 
 app = Flask(__name__)
 init_db(app)
@@ -10,6 +11,10 @@ init_db(app)
 CROPPED_FOLDER = "/home/dev/practice/Inference/PDFs/test_pdf"
 JSON_PATH = "/home/dev/practice/Inference/PDFs/result.json"
 download_pdf_path = "/home/dev/practice/Inference/PDFs/test_pdf/inf_pdf.pdf"
+
+
+infer = Inference(["silt_fence","rock_berm","inlet_protection"])
+
 @app.route('/process_pdf', methods=['POST'])
 def process_pdf():
     pdf_path = request.json.get('pdf_path')
@@ -38,10 +43,12 @@ def process_pdf():
         return jsonify({"error": f"Failed during PDF to JPEG conversion: {str(e)}"}), 500
 
     try:
+        #creating object for Inference class
+
         for model_name in model_names:
             obj_count = 0
             try:
-                polygon_count = run_inference(model_name, JSON_PATH, CROPPED_FOLDER, obj_count)
+                polygon_count = run_inference(infer, model_name, JSON_PATH, CROPPED_FOLDER, obj_count)
             except Exception as e:
                 return jsonify({"error": f"Inference failed for model '{model_name}': {str(e)}"}), 500
 
@@ -78,7 +85,7 @@ def process_pdf():
 
 
     except Exception as e:
-        clear_dir("/home/dev/practice/Inference/PDFs/result_test")
+        #iucdclear_dir("/home/dev/practice/Inference/PDFs/result_test")
         clear_dir("/home/dev/practice/Inference/PDFs/test_pdf")
         return jsonify({"error": f"Unexpected failure: {str(e)}"}), 500
 
