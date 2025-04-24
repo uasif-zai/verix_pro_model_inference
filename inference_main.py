@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import json
 import os
+import time
 from inference import run_inference, pdf_to_jpeg, clear_dir,download_pdf_from_url
 from db_manager import init_db, insert_test_table_data
 from app import Inference
@@ -17,6 +18,7 @@ infer = Inference(["silt_fence","rock_berm","inlet_protection"])
 
 @app.route('/process_pdf', methods=['POST'])
 def process_pdf():
+    start_time = time.time()  # ⏱️ start measuring
     pdf_path = request.json.get('pdf_path')
     model_names = request.json.get('model_names')
     pdf_id = request.json.get('pdf_id')
@@ -80,8 +82,12 @@ def process_pdf():
 
         clear_dir("/home/dev/practice/Inference/PDFs/result_test")
         clear_dir("/home/dev/practice/Inference/PDFs/test_pdf")
+        end_time = time.time()  # ⏱️ stop measuring
+        duration = round(end_time - start_time, 2)
 
-        return jsonify({"message": "Coordinates have been successfully saved to the database with status 'processed'."}), 200
+
+        return jsonify({"message": "Coordinates have been successfully saved to the database with status 'processed'.",
+                        "duration_in_seconds": duration}), 200
 
 
     except Exception as e:
