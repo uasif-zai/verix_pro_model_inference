@@ -4,13 +4,16 @@ import cv2
 import numpy as np
 from PIL import Image
 from pdf2image import convert_from_path
-from mrcnn import model as modellib
-from mrcnn.config import Config
+
 from mrcnn.visualize import apply_mask, random_colors
 import shutil
 from pathlib import Path
 from flask import Flask, request, jsonify
 import requests
+import time
+from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import Pool
+
 
 
 # Constants
@@ -18,13 +21,52 @@ OUTPUT_FOLDER = "/home/dev/practice/Inference/PDFs/result_test"
 WEIGHTS_DIR = "/home/dev/practice/Inference/data/weights"
 METADATA_DIR = "/home/dev/practice/Inference/data/JSON_files"
 
-def clear_dir(path):
-    """Clear all files and directories in the specified path."""
+
+import time
+
+
+
+def measure_time(func):
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        end = time.time()
+        print(f"[⏱] {func.__name__} took {end - start:.2f} seconds")
+        return result
+    return wrapper
+
+
+
+@measure_time
+def resize_image(image, max_dim=7200):
+    """Resize image while maintaining aspect ratio."""
     try:
-        [shutil.rmtree(p) if p.is_dir() else p.unlink() for p in Path(path).glob('*')]
+        h, w = image.shape[:2]
+        scale = min(max_dim / max(h, w), 1.0)
+        return cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
     except Exception as e:
-        print(f"[!] Failed to clear directory {path}: {e}")
+        print(f"[!] Failed to resize image: {e}")
         raise
+
+
+@measure_time
+def clear_dir(paths):
+    """Clear all files and directories in the specified list of paths."""
+    try:
+        for path in paths:
+            # Loop through each directory in the list
+            for p in Path(path).glob('*'):
+                if p.is_dir():
+                    shutil.rmtree(p)  # Remove directory and its contents
+                else:
+                    p.unlink()  # Remove file
+        return True  # Success if all directories are cleared
+    except Exception as e:
+        print(f"[!] Error clearing directories {paths}: {e}")
+        return False  # Failure if any exception occurs
+    
+
+
 
 def convert_coords_to_str(obj):
     """Convert coordinates in lists or dicts to string format."""
@@ -38,6 +80,9 @@ def convert_coords_to_str(obj):
     else:
         return obj
 
+
+
+@measure_time
 def print_object_coordinates(image_name, masks, class_ids, class_names, model_name, JSON_data, obj_count, coords_per_line=5):
     """Print object polygon coordinates and update JSON data."""
     try:
@@ -72,36 +117,8 @@ def print_object_coordinates(image_name, masks, class_ids, class_names, model_na
         print(f"[!] Error in print_object_coordinates: {e}")
         return JSON_data, obj_count
 
-# def load_class_names(model_name):
-#     """Load class names from a JSON metadata file."""
-#     try:
-#         json_path = os.path.join(METADATA_DIR, f"{model_name}.json")
-#         with open(json_path, "r") as f:
-#             data = json.load(f)
-#         return data["types"]
-#     except Exception as e:
-#         raise FileNotFoundError(f"[!] Failed to load class names for {model_name}: {e}")
 
-# def find_weights_file(model_name):
-#     """Find the weights file path for the model."""
-#     weight_path = os.path.join(WEIGHTS_DIR, f"{model_name}.h5")
-#     if not os.path.exists(weight_path):
-#         raise FileNotFoundError(f"Weight file not found: {weight_path}")
-#     return weight_path
-
-# class CustomConfig(Config):
-#     """Custom config for Mask R-CNN inference."""
-#     NAME = "object"
-#     IMAGES_PER_GPU = 1
-#     STEPS_PER_EPOCH = 2
-#     DETECTION_MIN_CONFIDENCE = 0.9
-
-#     def __init__(self, num_classes):
-#         self.NUM_CLASSES = 1 + num_classes
-#         super().__init__()
-
-
-
+@measure_time
 def download_pdf_from_url(url, save_path):
     response = requests.get(url)
     response.raise_for_status()
@@ -110,6 +127,39 @@ def download_pdf_from_url(url, save_path):
     return save_path
 
 
+def process_page(i, image, output_folder, max_dim):
+    """Process a single page image: resize and save as JPEG."""
+    try:
+        image = image.convert("RGB")
+        np_image = np.array(image)
+        resized_np_image = resize_image(np_image, max_dim=max_dim)
+        image_pil = Image.fromarray(resized_np_image)
+        image_path = os.path.join(output_folder, f"page_{i+1}.jpeg")
+        image_pil.save(image_path, 'JPEG')
+        return image_path
+    except Exception as e:
+        print(f"[!] Failed to process page {i + 1}: {e}")
+        return f"[!] Failed to process page {i + 1}: {e}"  # Return error as string
+
+def convert_single_page(page_number, pdf_path, output_folder, dpi, max_dim):
+    try:
+        image = convert_from_path(
+            pdf_path,
+            dpi=dpi,
+            first_page=page_number + 1,
+            last_page=page_number + 1
+        )[0]
+        return process_page(page_number, image, output_folder, max_dim)
+    except Exception as e:
+        error_msg = f"[!] Failed to convert page {page_number + 1}: {e}"
+        print(error_msg)
+        return error_msg
+
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
+@measure_time
 def pdf_to_jpeg(pdf_path, output_folder, max_dim=7200, dpi=72):
     """Convert a PDF into JPEG images."""
     try:
@@ -126,19 +176,17 @@ def pdf_to_jpeg(pdf_path, output_folder, max_dim=7200, dpi=72):
             image_paths.append(image_path)
         return image_paths
     except Exception as e:
-        print(f"[!] Failed to convert PDF to JPEG: {e}")
-        raise
+        error_msg = f"[!] Failed to convert PDF '{pdf_path}' to JPEG in '{output_folder}': {e}"
+        print(error_msg)
+        raise RuntimeError(error_msg)
 
-def resize_image(image, max_dim=7200):
-    """Resize image while maintaining aspect ratio."""
-    try:
-        h, w = image.shape[:2]
-        scale = min(max_dim / max(h, w), 1.0)
-        return cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-    except Exception as e:
-        print(f"[!] Failed to resize image: {e}")
-        raise
 
+
+
+
+
+
+@measure_time
 def save_masked_image(image, boxes, masks, class_ids, class_names, scores, output_path):
     """Save image with instance masks and class labels."""
     try:
@@ -155,6 +203,7 @@ def save_masked_image(image, boxes, masks, class_ids, class_names, scores, outpu
         print(f"[!] Failed to save masked image: {e}")
         raise
 
+@measure_time
 def create_pdf_from_images(image_paths, output_pdf_path):
     """Create a PDF from a list of image paths."""
     try:
@@ -166,21 +215,10 @@ def create_pdf_from_images(image_paths, output_pdf_path):
         print(f"[!] Failed to create result PDF: {e}")
         raise
 
+@measure_time
 def run_inference(infer, model_name, JSON_PATH, CROPPED_FOLDER, obj_count):
     """Run inference using the given model and save results."""
     try:
-        # class_names = load_class_names(model_name)
-        # weights_path = find_weights_file(model_name)
-
-        # config = CustomConfig(num_classes=len(class_names))
-        # model = modellib.MaskRCNN(mode="inference", model_dir=WEIGHTS_DIR, config=config)
-
-
-        # try:
-        #     model.load_weights(weights_path, by_name=True)
-        # except Exception as e:
-        #     print(f"[!] Failed to load weights: {e}")
-        #     return 0
 
         class_names = infer.models[model_name]["class_names"]
         model = infer.models[model_name]["model"]
@@ -215,9 +253,9 @@ def run_inference(infer, model_name, JSON_PATH, CROPPED_FOLDER, obj_count):
                 json_data, temp = print_object_coordinates(filename, result['masks'], result['class_ids'], class_names, model_name, json_data, obj_count)
                 polygon_count += temp
 
-                json_data_with_str_coords = convert_coords_to_str(json_data)
+                #json_data_with_str_coords = convert_coords_to_str(json_data)
                 with open(JSON_PATH, 'w') as f:
-                    json.dump(json_data_with_str_coords, f, indent=None, separators=(',', ':'))
+                    json.dump(json_data, f, indent=None, separators=(',', ':'))
 
                 save_masked_image(image, result['rois'], result['masks'], result['class_ids'], ['BG'] + class_names, result['scores'], output_path)
                 output_paths.append(output_path)
@@ -226,7 +264,7 @@ def run_inference(infer, model_name, JSON_PATH, CROPPED_FOLDER, obj_count):
                 print(f"[!] Error processing image {path}: {e}")
                 raise
 
-        create_pdf_from_images(output_paths, os.path.join(OUTPUT_FOLDER, f"{model_name}_results.pdf"))
+        #create_pdf_from_images(output_paths, os.path.join(OUTPUT_FOLDER, f"{model_name}_results.pdf"))
         return polygon_count
 
     except Exception as e:

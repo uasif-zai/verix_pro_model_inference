@@ -38,6 +38,8 @@ def process_pdf():
         download_pdf_from_url(pdf_path, download_pdf_path)
     except Exception as e:
         print(f"[!] Failed to   download PDF from URL: {e}")
+        return jsonify({"error": f"[!] Failed to   download PDF from URL: {e}"}), 500
+
 
     try:
         pdf_to_jpeg(download_pdf_path, CROPPED_FOLDER)
@@ -80,8 +82,12 @@ def process_pdf():
         except Exception as e:
             return jsonify({"error": f"Database insertion failed: {str(e)}"}), 500
 
-        clear_dir("/home/dev/practice/Inference/PDFs/result_test")
-        clear_dir("/home/dev/practice/Inference/PDFs/test_pdf")
+    
+        success = clear_dir(["/home/dev/practice/Inference/PDFs/result_test","/home/dev/practice/Inference/PDFs/test_pdf"])
+        if not success:
+            return jsonify({"error": "Failed to clear directories"}), 500
+        
+
         end_time = time.time()  # ⏱️ stop measuring
         duration = round(end_time - start_time, 2)
 
