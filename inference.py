@@ -109,6 +109,16 @@ def download_pdf_from_url(url, save_path):
         f.write(response.content)
     return save_path
 
+def resize_image(image, max_dim=7200):
+    """Resize image while maintaining aspect ratio."""
+    try:
+        h, w = image.shape[:2]
+        scale = min(max_dim / max(h, w), 1.0)
+        return cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+    except Exception as e:
+        print(f"[!] Failed to resize image: {e}")
+        raise
+
 
 def pdf_to_jpeg(pdf_path, output_folder, max_dim=7200, dpi=72):
     """Convert a PDF into JPEG images."""
@@ -119,7 +129,8 @@ def pdf_to_jpeg(pdf_path, output_folder, max_dim=7200, dpi=72):
         for i, image in enumerate(images):
             image = image.convert("RGB")
             np_image = np.array(image)
-            resized_np_image = resize_image(np_image, max_dim=max_dim)
+            # resized_np_image = resize_image(np_image, max_dim=max_dim)
+            resized_np_image = np_image
             image_pil = Image.fromarray(resized_np_image)
             image_path = os.path.join(output_folder, f"page_{i+1}.jpeg")
             image_pil.save(image_path, 'JPEG')
@@ -129,15 +140,6 @@ def pdf_to_jpeg(pdf_path, output_folder, max_dim=7200, dpi=72):
         print(f"[!] Failed to convert PDF to JPEG: {e}")
         raise
 
-def resize_image(image, max_dim=7200):
-    """Resize image while maintaining aspect ratio."""
-    try:
-        h, w = image.shape[:2]
-        scale = min(max_dim / max(h, w), 1.0)
-        return cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-    except Exception as e:
-        print(f"[!] Failed to resize image: {e}")
-        raise
 
 def save_masked_image(image, boxes, masks, class_ids, class_names, scores, output_path):
     """Save image with instance masks and class labels."""
@@ -195,7 +197,8 @@ def run_inference(model_name, JSON_PATH, CROPPED_FOLDER, obj_count):
                 if image is None:
                     raise ValueError(f"Image at path {path} could not be read.")
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                image = resize_image(image)
+                # image = resize_image(image)
+                
                 filename = os.path.basename(path)
                 output_path = os.path.join(OUTPUT_FOLDER, filename)  # ← ADD THIS LINE
                 try:
@@ -210,9 +213,9 @@ def run_inference(model_name, JSON_PATH, CROPPED_FOLDER, obj_count):
                 json_data, temp = print_object_coordinates(filename, result['masks'], result['class_ids'], class_names, model_name, json_data, obj_count)
                 polygon_count += temp
 
-                json_data_with_str_coords = convert_coords_to_str(json_data)
+                # json_data_with_str_coords = convert_coords_to_str(json_data)
                 with open(JSON_PATH, 'w') as f:
-                    json.dump(json_data_with_str_coords, f, indent=None, separators=(',', ':'))
+                    json.dump(json_data, f, indent=None, separators=(',', ':'))
 
                 save_masked_image(image, result['rois'], result['masks'], result['class_ids'], ['BG'] + class_names, result['scores'], output_path)
                 output_paths.append(output_path)

@@ -74,8 +74,8 @@ def process_pdf():
         except Exception as e:
             return jsonify({"error": f"Database insertion failed: {str(e)}"}), 500
 
-        clear_dir("/home/dev/practice/Inference/PDFs/result_test")
-        clear_dir("/home/dev/practice/Inference/PDFs/test_pdf")
+        #clear_dir("/home/dev/practice/Inference/PDFs/result_test")
+        #clear_dir("/home/dev/practice/Inference/PDFs/test_pdf")
         end_time = time.time()  # ⏱️ stop measuring
         duration = round(end_time - start_time, 2)
 
@@ -84,8 +84,8 @@ def process_pdf():
 
 
     except Exception as e:
-        clear_dir("/home/dev/practice/Inference/PDFs/result_test")
-        clear_dir("/home/dev/practice/Inference/PDFs/test_pdf")
+        #clear_dir("/home/dev/practice/Inference/PDFs/result_test")
+        #clear_dir("/home/dev/practice/Inference/PDFs/test_pdf")
         return jsonify({"error": f"Unexpected failure: {str(e)}"}), 500
 
 if __name__ == "__main__":
