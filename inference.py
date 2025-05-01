@@ -4,19 +4,16 @@ import cv2
 import numpy as np
 from PIL import Image
 from pdf2image import convert_from_path
-from mrcnn import model as modellib
-from mrcnn.config import Config
+# from mrcnn import model as modellib
+# from mrcnn.config import Config
 from mrcnn.visualize import apply_mask, random_colors
 import shutil
 from pathlib import Path
-from flask import Flask, request, jsonify
 import requests
 
-
-# Constants
-OUTPUT_FOLDER = "/home/dev/practice/Inference/PDFs/result_test"
-WEIGHTS_DIR = "/home/dev/practice/Inference/data/weights"
-METADATA_DIR = "/home/dev/practice/Inference/data/JSON_files"
+# Constants (keeping WEIGHTS_DIR and METADATA_DIR as they are read-only)
+WEIGHTS_DIR = "/Users/devs/Documents/Projects/verix_pro_model_inference/data/weights"
+METADATA_DIR = "/Users/devs/Documents/Projects/verix_pro_model_inference/data/JSON_files"
 
 def clear_dir(path):
     """Clear all files and directories in the specified path."""
@@ -25,18 +22,6 @@ def clear_dir(path):
     except Exception as e:
         print(f"[!] Failed to clear directory {path}: {e}")
         raise
-
-def convert_coords_to_str(obj):
-    """Convert coordinates in lists or dicts to string format."""
-    if isinstance(obj, list):
-        if len(obj) == 2 and all(isinstance(i, int) for i in obj):
-            return f"({obj[0]}, {obj[1]})"
-        else:
-            return [convert_coords_to_str(i) for i in obj]
-    elif isinstance(obj, dict):
-        return {k: convert_coords_to_str(v) for k, v in obj.items()}
-    else:
-        return obj
 
 def print_object_coordinates(image_name, masks, class_ids, class_names, model_name, JSON_data, obj_count, coords_per_line=5):
     """Print object polygon coordinates and update JSON data."""
@@ -48,13 +33,10 @@ def print_object_coordinates(image_name, masks, class_ids, class_names, model_na
         for i in range(totalDetectedObjects):
             mask = masks[:, :, i].astype(np.uint8)
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            # label = class_names[class_ids[i]]
-            # Adjust the class ID if it's out of bounds
             class_id = class_ids[i]
             if class_id >= len(class_names):
-                print(f"Warning: Class ID {class_id} is out of bounds.  Using the last class name.")
-                class_id = len(class_names) - 1  # Use the last class as a fallback]
-
+                print(f"Warning: Class ID {class_id} is out of bounds. Using the last class name.")
+                class_id = len(class_names) - 1
             for contour in contours:
                 coords = contour.reshape(-1, 2).tolist()
                 obj_count += 1
@@ -72,35 +54,33 @@ def print_object_coordinates(image_name, masks, class_ids, class_names, model_na
         print(f"[!] Error in print_object_coordinates: {e}")
         return JSON_data, obj_count
 
-def load_class_names(model_name):
-    """Load class names from a JSON metadata file."""
-    try:
-        json_path = os.path.join(METADATA_DIR, f"{model_name}.json")
-        with open(json_path, "r") as f:
-            data = json.load(f)
-        return data["types"]
-    except Exception as e:
-        raise FileNotFoundError(f"[!] Failed to load class names for {model_name}: {e}")
+# def load_class_names(model_name):
+#     """Load class names from a JSON metadata file."""
+#     try:
+#         json_path = os.path.join(METADATA_DIR, f"{model_name}.json")
+#         with open(json_path, "r") as f:
+#             data = json.load(f)
+#         return data["types"]
+#     except Exception as e:
+#         raise FileNotFoundError(f"[!] Failed to load class names for {model_name}: {e}")
 
-def find_weights_file(model_name):
-    """Find the weights file path for the model."""
-    weight_path = os.path.join(WEIGHTS_DIR, f"{model_name}.h5")
-    if not os.path.exists(weight_path):
-        raise FileNotFoundError(f"Weight file not found: {weight_path}")
-    return weight_path
+# def find_weights_file(model_name):
+#     """Find the weights file path for the model."""
+#     weight_path = os.path.join(WEIGHTS_DIR, f"{model_name}.h5")
+#     if not os.path.exists(weight_path):
+#         raise FileNotFoundError(f"Weight file not found: {weight_path}")
+#     return weight_path
 
-class CustomConfig(Config):
-    """Custom config for Mask R-CNN inference."""
-    NAME = "object"
-    IMAGES_PER_GPU = 1
-    STEPS_PER_EPOCH = 2
-    DETECTION_MIN_CONFIDENCE = 0.9
+# class CustomConfig(Config):
+#     """Custom config for Mask R-CNN inference."""
+#     NAME = "object"
+#     IMAGES_PER_GPU = 1
+#     STEPS_PER_EPOCH = 2
+#     DETECTION_MIN_CONFIDENCE = 0.9
 
-    def __init__(self, num_classes):
-        self.NUM_CLASSES = 1 + num_classes
-        super().__init__()
-
-
+#     def __init__(self, num_classes):
+#         self.NUM_CLASSES = 1 + num_classes
+#         super().__init__()
 
 def download_pdf_from_url(url, save_path):
     response = requests.get(url)
@@ -108,7 +88,6 @@ def download_pdf_from_url(url, save_path):
     with open(save_path, 'wb') as f:
         f.write(response.content)
     return save_path
-
 
 def pdf_to_jpeg(pdf_path, output_folder, max_dim=7200, dpi=72):
     """Convert a PDF into JPEG images."""
@@ -119,8 +98,8 @@ def pdf_to_jpeg(pdf_path, output_folder, max_dim=7200, dpi=72):
         for i, image in enumerate(images):
             image = image.convert("RGB")
             np_image = np.array(image)
-            resized_np_image = resize_image(np_image, max_dim=max_dim)
-            image_pil = Image.fromarray(resized_np_image)
+            # resized_np_image = resize_image(np_image, max_dim=max_dim)
+            image_pil = Image.fromarray(np_image)
             image_path = os.path.join(output_folder, f"page_{i+1}.jpeg")
             image_pil.save(image_path, 'JPEG')
             image_paths.append(image_path)
@@ -129,15 +108,6 @@ def pdf_to_jpeg(pdf_path, output_folder, max_dim=7200, dpi=72):
         print(f"[!] Failed to convert PDF to JPEG: {e}")
         raise
 
-def resize_image(image, max_dim=7200):
-    """Resize image while maintaining aspect ratio."""
-    try:
-        h, w = image.shape[:2]
-        scale = min(max_dim / max(h, w), 1.0)
-        return cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-    except Exception as e:
-        print(f"[!] Failed to resize image: {e}")
-        raise
 
 def save_masked_image(image, boxes, masks, class_ids, class_names, scores, output_path):
     """Save image with instance masks and class labels."""
@@ -166,26 +136,29 @@ def create_pdf_from_images(image_paths, output_pdf_path):
         print(f"[!] Failed to create result PDF: {e}")
         raise
 
-def run_inference(model_name, JSON_PATH, CROPPED_FOLDER, obj_count):
+def run_inference(infer, model_name, json_path, cropped_folder, output_folder, obj_count):
     """Run inference using the given model and save results."""
     try:
-        class_names = load_class_names(model_name)
-        weights_path = find_weights_file(model_name)
+        class_names = infer.models[model_name]["class_names"]
+        model = infer.models[model_name]["model"]
+        print("in inference  model loaded for : ", model_name)
+        # class_names = load_class_names(model_name)
+        # weights_path = find_weights_file(model_name)
 
-        config = CustomConfig(num_classes=len(class_names))
-        model = modellib.MaskRCNN(mode="inference", model_dir=WEIGHTS_DIR, config=config)
+        # config = CustomConfig(num_classes=len(class_names))
+        # model = modellib.MaskRCNN(mode="inference", model_dir=WEIGHTS_DIR, config=config)
 
-        try:
-            model.load_weights(weights_path, by_name=True)
-        except Exception as e:
-            print(f"[!] Failed to load weights: {e}")
-            return 0
+        # try:
+        #     model.load_weights(weights_path, by_name=True)
+        # except Exception as e:
+        #     print(f"[!] Failed to load weights: {e}")
+        #     return 0
 
         image_paths = sorted([
-            os.path.join(CROPPED_FOLDER, f) 
-            for f in os.listdir(CROPPED_FOLDER) if f.endswith('.jpeg')
+            os.path.join(cropped_folder, f) 
+            for f in os.listdir(cropped_folder) if f.endswith('.jpeg')
         ])
-        os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+        os.makedirs(output_folder, exist_ok=True)
         output_paths = []
         polygon_count = 0 
 
@@ -195,24 +168,23 @@ def run_inference(model_name, JSON_PATH, CROPPED_FOLDER, obj_count):
                 if image is None:
                     raise ValueError(f"Image at path {path} could not be read.")
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                image = resize_image(image)
+                # image = resize_image(image)
                 filename = os.path.basename(path)
-                output_path = os.path.join(OUTPUT_FOLDER, filename)  # ← ADD THIS LINE
+                output_path = os.path.join(output_folder, filename)
                 try:
                     result = model.detect([image], verbose=0)[0]
                 except Exception as e:
                     print(f"[!] Inference failed on image {filename}: {e}")
                     continue
 
-                with open(JSON_PATH, 'r') as file:
+                with open(json_path, 'r') as file:
                     json_data = json.load(file)
 
                 json_data, temp = print_object_coordinates(filename, result['masks'], result['class_ids'], class_names, model_name, json_data, obj_count)
                 polygon_count += temp
 
-                json_data_with_str_coords = convert_coords_to_str(json_data)
-                with open(JSON_PATH, 'w') as f:
-                    json.dump(json_data_with_str_coords, f, indent=None, separators=(',', ':'))
+                with open(json_path, 'w') as f:
+                    json.dump(json_data, f, indent=None, separators=(',', ':'))
 
                 save_masked_image(image, result['rois'], result['masks'], result['class_ids'], ['BG'] + class_names, result['scores'], output_path)
                 output_paths.append(output_path)
@@ -221,7 +193,7 @@ def run_inference(model_name, JSON_PATH, CROPPED_FOLDER, obj_count):
                 print(f"[!] Error processing image {path}: {e}")
                 raise
 
-        create_pdf_from_images(output_paths, os.path.join(OUTPUT_FOLDER, f"{model_name}_results.pdf"))
+        create_pdf_from_images(output_paths, os.path.join(output_folder, f"{model_name}_results.pdf"))
         return polygon_count
 
     except Exception as e:
